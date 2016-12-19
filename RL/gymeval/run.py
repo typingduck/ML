@@ -11,6 +11,7 @@ import  time
 import numpy as np
 import gym
 import agents
+import time
 
 
 if __name__ == '__main__':
@@ -36,7 +37,7 @@ if __name__ == '__main__':
         env.seed(seed)
         np.random.seed(seed)
 
-    resultsdir = './' + nameenv
+    resultsdir = './%s_%d' %(nameenv, int(time.time()))
 
     env.monitor.start(resultsdir, force=True)
     print (env.observation_space, env.action_space, env.spec.timestep_limit, env.reward_range, gym.envs.registry.spec(nameenv).trials)
@@ -95,6 +96,9 @@ if __name__ == '__main__':
     costlist = []
     showevery = 10
     for episode in range(numepisodes):
+        if episode % 100 == 0:
+            showevery = max(1, showevery-1)
+
         if episode % showevery == 0:
             render = True
             eps = None
@@ -124,8 +128,8 @@ if __name__ == '__main__':
             plotlast = 200 + episode % 50
             ax[0].clear()
             ax[0].set_xlim(max(-1, len(totrewavglist) / 50 * 50 - 150), len(totrewavglist) / 50 * 50 + 50)
-            ax[0].set_ylim(min(totrewlist[max(0, len(totrewavglist) / 50 * 50 - 150):]) - 5,
-                           max(totrewlist[max(0, len(totrewavglist) / 50 * 50 - 150):]) + 5)
+            ax[0].set_ylim(min(totrewlist[int(max(0, len(totrewavglist) / 50 * 50 - 150)):]) - 5,
+                           max(totrewlist[int(max(0, len(totrewavglist) / 50 * 50 - 150)):]) + 5)
             ax[0].plot([0, len(totrewavglist) + 100], [reward_threshold, reward_threshold], color='green')
 
             ax[0].plot(range(len(totrewlist)), totrewlist, color='red')
@@ -133,13 +137,12 @@ if __name__ == '__main__':
             ax[0].scatter([showevery * ff for ff in range(len(totrewlist[::showevery]))], totrewlist[::showevery], color='black')
             ax[0].plot([max(0, len(totrewavglist) - 1 - 100), len(totrewavglist) - 1],
                        [np.mean(np.array(totrewlist[-100:])), np.mean(np.array(totrewlist[-100:]))], color='black')
-            plt.draw()
-            plt.pause(.01)
+            #plt.draw()
+            #plt.pause(.01)
         print (render, 'time', (time.time() - startt) / steps * 100., 'steps', steps, 'total reward', total_rew,
             agent.config['scalereward'], 'avg', avg / agent.config['scalereward'], cost / steps, 'eps',
             agent.epsilon(eps), len(agent.memory))
     # fig.savefig('last.png')
     env.monitor.close()
     print (agent.config)
-    # gym.upload(resultsdir, api_key='YOURAPI')
 
