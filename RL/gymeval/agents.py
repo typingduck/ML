@@ -107,7 +107,7 @@ class deepQAgent(object):
             np.random.seed(self.config["seed"])
             print ("seed", self.config["seed"])
         # print (self.config["initial_learnrate"])
-        self.isdiscrete = isinstance(self.action_space, gym.spaces.Discrete)
+
         if not isinstance(self.action_space, gym.spaces.Discrete):
             raise Exception('Observation space {} incompatible with {}. (Only supports Discrete action spaces.)'.format(
                 observation_space, self))
@@ -156,9 +156,8 @@ class deepQAgent(object):
                                                                                               global_step=self.global_step)
 
     def initQnetwork(self):
-        if self.isdiscrete:
-            n_input = self.observation_space.shape[0] * (self.config['past'] + 1)
-            self.n_out = self.action_space.n
+        n_input = self.observation_space.shape[0] * (self.config['past'] + 1)
+        self.n_out = self.action_space.n
 
         self.x = tf.placeholder("float", [None, n_input], name="self.x")
         self.y = tf.placeholder("float", [None, 1], name="self.y")
@@ -176,20 +175,19 @@ class deepQAgent(object):
         self.R, regulR = multilayer_perceptron(self.x, [n_input, 100, self.n_out], self.config['regularization'],
                                                initbias=.0, seed=self.config["seed"])  # ,self.Qrange[0],self.Qrange[1])
 
-        if self.isdiscrete:
-            self.curraction = tf.placeholder("float", [None, self.n_out], name="curraction")
-            # index = tf.concat(0, [self.out, tf.constant([0, 0, 0], tf.int64)])
-            self.singleQ = tf.reduce_sum(self.curraction * self.Q,
-                                         reduction_indices=1)  # tf.reduce_sum(input_tensor, reduction_indices, keep_dims, name)#tf.slice(self.Q, [0,self.curraction],[-1,1])  #self.Q[:,self.out]
-            self.singleQ = tf.reshape(self.singleQ, [-1, 1])
+        self.curraction = tf.placeholder("float", [None, self.n_out], name="curraction")
+        # index = tf.concat(0, [self.out, tf.constant([0, 0, 0], tf.int64)])
+        self.singleQ = tf.reduce_sum(self.curraction * self.Q,
+                                     reduction_indices=1)  # tf.reduce_sum(input_tensor, reduction_indices, keep_dims, name)#tf.slice(self.Q, [0,self.curraction],[-1,1])  #self.Q[:,self.out]
+        self.singleQ = tf.reshape(self.singleQ, [-1, 1])
 
-            self.singleR = tf.reduce_sum(self.curraction * self.R,
-                                         reduction_indices=1)  # tf.reduce_sum(input_tensor, reduction_indices, keep_dims, name)#tf.slice(self.Q, [0,self.curraction],[-1,1])  #self.Q[:,self.out]
-            self.singleR = tf.reshape(self.singleR, [-1, 1])
+        self.singleR = tf.reduce_sum(self.curraction * self.R,
+                                     reduction_indices=1)  # tf.reduce_sum(input_tensor, reduction_indices, keep_dims, name)#tf.slice(self.Q, [0,self.curraction],[-1,1])  #self.Q[:,self.out]
+        self.singleR = tf.reshape(self.singleR, [-1, 1])
 
-            # print ('singleR',self.singleR.get_shape())
-            self.errorlistR = (self.singleR - self.yR) ** 2
-            self.errorlist = (self.singleQ - self.y) ** 2
+        # print ('singleR',self.singleR.get_shape())
+        self.errorlistR = (self.singleR - self.yR) ** 2
+        self.errorlist = (self.singleQ - self.y) ** 2
 
         self.cost = tf.reduce_mean(self.errorlist) + regul
         self.costR = tf.reduce_mean(self.errorlistR) + regulR
@@ -215,247 +213,223 @@ class deepQAgent(object):
         self.sess.run(tf.assign(self.global_step, 0))
 
     def evalQ(self, state, action):
-        if self.isdiscrete:
-            if state.ndim == 1:
-                state = state.reshape(1, -1)
-            return self.sess.run(self.singleQ, feed_dict={self.x: state, self.curraction: action})
-        else:
-            if state.ndim == 1:
-                stateaction = np.concatenate((state.reshape(1, -1), action.reshape(1, -1)), 1)
-            else:
-                stateaction = np.concatenate((state, action), 1)
-            return self.sess.run(self.Q, feed_dict={self.x: stateaction})
+        if state.ndim == 1:
+            state = state.reshape(1, -1)
+        return self.sess.run(self.singleQ, feed_dict={self.x: state, self.curraction: action})
 
     def learnR(self, state, action, obnew, reward, notdone, nextaction):
-        if self.isdiscrete:
-            allstate = state.reshape(1, -1)
-            allaction = np.array([action])
-            alltarget = np.array([obnew]).reshape(1, -1)
-            alldone = [notdone]
-            allR = np.array([reward])
-            indexes = [-1]
-            update = (np.random.random() < .04)
-            # cost1=self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})/allstateaction.shape[0]
-            # erist=self.sess.run(self.errorlist, feed_dict={self.x:allstateaction,self.y:alltarget})
-            # print (erist)
-            if update:
-                if len(self.memory) > self.config['batch_size']:
-                    ind = np.random.choice(len(self.memory), self.config['batch_size'],
-                                           replace=False)  # ,p=np.array(self.errmemory)/sum(self.errmemory))
-                    # ind2=np.random.choice(len(self.memory), self.config['batch_size']/2, replace=False,p=np.array(self.errmemory)/sum(self.errmemory))
-                    # ind=np.concatenate((ind,ind2))
-                    for j in ind:
-                        s, a, r, onew, d, _, nextstate = self.memory[j]
-                        alltarget = np.concatenate((alltarget, obnew.reshape(1, -1)),
-                                                   0)  # =np.concatenate((alltarget,self.config['discount']*self.maxqR(onew)*d ),0) #np.concatenate((alltarget,r+self.config['discount']*self.maxq(onew)*d ),0)
-                        alldone.append(d)
-                        allR = np.concatenate((allR, np.array([r])), 0)
-                        # if np.random.random()<1.:
-                        #	self.memory[j]=(s,a,r,onew,d,r+self.config['discount']*self.maxq(onew).reshape(1,)*d )
-                        allstate = np.concatenate((allstate, s.reshape(1, -1)), 0)
-                        allaction = np.concatenate((allaction, np.array([a])), 0)
-                        indexes.append(j)
-                    allactionsparse = np.zeros((allstate.shape[0], self.n_out))
-                    allactionsparse[np.arange(allaction.shape[0]), allaction] = 1.
-                    # print (np.array(alldone).shape,self.maxqR(alltarget).shape)
-                    alltarget = self.config['discount'] * self.maxqR(alltarget) * np.array(alldone)
-                    #	print (alltarget[0:2])
-                    self.sess.run(self.optimizer, feed_dict={self.x: allstate, self.y: alltarget.reshape((-1, 1)),
-                                                             self.curraction: allactionsparse})
-                    self.sess.run(self.optimizerautoenc, feed_dict={self.sa: allstate, self.outstate: allstate})
-                    self.sess.run(self.optimizerR, feed_dict={self.x: allstate, self.yR: allR.reshape((-1, 1)),
-                                                              self.curraction: allactionsparse})
+        allstate = state.reshape(1, -1)
+        allaction = np.array([action])
+        alltarget = np.array([obnew]).reshape(1, -1)
+        alldone = [notdone]
+        allR = np.array([reward])
+        indexes = [-1]
+        update = (np.random.random() < .04)
+        # cost1=self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})/allstateaction.shape[0]
+        # erist=self.sess.run(self.errorlist, feed_dict={self.x:allstateaction,self.y:alltarget})
+        # print (erist)
+        if update:
+            if len(self.memory) > self.config['batch_size']:
+                ind = np.random.choice(len(self.memory), self.config['batch_size'],
+                                       replace=False)  # ,p=np.array(self.errmemory)/sum(self.errmemory))
+                # ind2=np.random.choice(len(self.memory), self.config['batch_size']/2, replace=False,p=np.array(self.errmemory)/sum(self.errmemory))
+                # ind=np.concatenate((ind,ind2))
+                for j in ind:
+                    s, a, r, onew, d, _, nextstate = self.memory[j]
+                    alltarget = np.concatenate((alltarget, obnew.reshape(1, -1)),
+                                               0)  # =np.concatenate((alltarget,self.config['discount']*self.maxqR(onew)*d ),0) #np.concatenate((alltarget,r+self.config['discount']*self.maxq(onew)*d ),0)
+                    alldone.append(d)
+                    allR = np.concatenate((allR, np.array([r])), 0)
+                    # if np.random.random()<1.:
+                    #	self.memory[j]=(s,a,r,onew,d,r+self.config['discount']*self.maxq(onew).reshape(1,)*d )
+                    allstate = np.concatenate((allstate, s.reshape(1, -1)), 0)
+                    allaction = np.concatenate((allaction, np.array([a])), 0)
+                    indexes.append(j)
+                allactionsparse = np.zeros((allstate.shape[0], self.n_out))
+                allactionsparse[np.arange(allaction.shape[0]), allaction] = 1.
+                # print (np.array(alldone).shape,self.maxqR(alltarget).shape)
+                alltarget = self.config['discount'] * self.maxqR(alltarget) * np.array(alldone)
+                #	print (alltarget[0:2])
+                self.sess.run(self.optimizer, feed_dict={self.x: allstate, self.y: alltarget.reshape((-1, 1)),
+                                                         self.curraction: allactionsparse})
+                self.sess.run(self.optimizerautoenc, feed_dict={self.sa: allstate, self.outstate: allstate})
+                self.sess.run(self.optimizerR, feed_dict={self.x: allstate, self.yR: allR.reshape((-1, 1)),
+                                                          self.curraction: allactionsparse})
 
-                    if False:
-                        c = self.sess.run(self.cost, feed_dict={self.x: allstate, self.y: alltarget.reshape((-1, 1)),
-                                                                self.curraction: allactionsparse})
-                        if c > self.lastcost:
-                            self.setlearnrate(0.999)
-                        else:
-                            self.setlearnrate(1.001)
-                        self.lastcost = c
-                else:
-                    alltarget = self.config['discount'] * self.maxqR(alltarget) * np.array(alldone)
-                    allactionsparse = np.zeros((allstate.shape[0], self.n_out))
-                    allactionsparse[np.arange(allaction.shape[0]), allaction] = 1.
+                if False:
+                    c = self.sess.run(self.cost, feed_dict={self.x: allstate, self.y: alltarget.reshape((-1, 1)),
+                                                            self.curraction: allactionsparse})
+                    if c > self.lastcost:
+                        self.setlearnrate(0.999)
+                    else:
+                        self.setlearnrate(1.001)
+                    self.lastcost = c
             else:
                 alltarget = self.config['discount'] * self.maxqR(alltarget) * np.array(alldone)
                 allactionsparse = np.zeros((allstate.shape[0], self.n_out))
                 allactionsparse[np.arange(allaction.shape[0]), allaction] = 1.
-            indexes = np.array(indexes)
-
-            erlist = self.sess.run(self.errorlist, feed_dict={self.x: allstate, self.y: alltarget.reshape((-1, 1)),
-                                                              self.curraction: allactionsparse})
-            erlist = erlist.reshape(-1, )
-            self.errmemory.append(erlist[0])
-
-            for i, er in enumerate(erlist):
-                # print (indexes[i], er,self.errmemory[indexes[i]])
-                self.errmemory[indexes[i]] = er  # self.errmemory[a]
-            self.errmemory = self.errmemory[-50000:]
-
-            if len(self.memory) > 0 and np.array_equal(self.memory[-1][3], state):
-                self.memory[-1][6] = len(self.memory)
-            self.memory.append([state, action, reward, obnew, notdone, 0, None])
-
-            self.memory = self.memory[-50000:]
-            # print (self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})-cost1)
-            return 0  # self.sess.run(self.costautoenc,feed_dict={self.x:allstate,self.outstate:allstate}) #self.sess.run(self.cost, feed_dict={self.x:allstate,self.y:alltarget.reshape((-1,1)),self.curraction:allactionsparse})/allstate.shape[0]
-
-    def learn(self, state, action, obnew, reward, notdone, nextaction):
-        if self.isdiscrete:
-            target = reward + self.config['discount'] * self.maxq(obnew) * notdone
-            # target=reward+self.config['discount']*self.evalQ(obnew,nextaction)*notdone
-
-            target = target.reshape(1, )
-            allstate = state.reshape(1, -1)
-            allaction = np.array([action])
-            alltarget = target
-            # allR=np.array([reward])
-            indexes = [-1]
-            update = (np.random.random() < self.config['probupdate'])
-            # cost1=self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})/allstateaction.shape[0]
-            # erist=self.sess.run(self.errorlist, feed_dict={self.x:allstateaction,self.y:alltarget})
-            # print (erist)
-            if update:
-                if len(self.memory) > self.config['batch_size']:
-                    # p=np.arange(4,step=4./len(self.memory))+1.
-                    # p=p[0:len(self.memory)]
-                    # p/=np.sum(p)
-                    ind = np.random.choice(len(self.memory), self.config[
-                        'batch_size'])  # ,p=np.array(self.errmemory)/sum(self.errmemory))
-                    # ind2=np.random.choice(len(self.memory), self.config['batch_size']/2, replace=False,p=np.array(self.errmemory)/sum(self.errmemory))
-                    # ind=np.concatenate((ind,ind2))
-                    for j in ind:
-                        s, a, r, onew, d, Q, nextstate = self.memory[j]
-
-                        if Q != None:
-                            alternativetarget = Q
-                        else:
-                            if self.config['lambda'] > 0.:
-                                limitd = 1000
-                                alternativetarget = r
-                                gamma = self.config['discount']
-                                offset = 0
-                                if nextstate == None:
-                                    alternativetarget += gamma * self.maxq(onew) * d
-                                # besttarget=(r+gamma*self.maxq(onew) * d)[0]
-
-                                while nextstate != None and offset < limitd:
-                                    offset += nextstate
-                                    n = j + offset
-
-                                    # print (j,n)
-                                    alternativetarget += gamma * self.memory[n][2]
-                                    gamma = gamma * self.config['discount']
-                                    # print (j,n,self.memory[n][6])
-                                    # besttarget=max(besttarget,(alternativetarget+gamma*self.maxq(self.memory[n][3]) * self.memory[n][4])[0])
-                                    if self.memory[n][6] == None or not (offset < limitd):
-                                        alternativetarget += gamma * self.maxq(self.memory[n][3]) * self.memory[n][4]
-                                    # if self.memory[n][4]<0.5:
-                                    #	print (alternativetarget,self.memory[n][4])
-                                    nextstate = self.memory[n][6]
-                                    # print (besttarget.shape,np.max(besttarget))
-                            else:
-                                alternativetarget = 0.
-                            self.memory[j][5] = alternativetarget
-                        # print (besttarget)
-
-                        alternativetarget = alternativetarget * self.config['lambda'] + (r + self.config[
-                            'discount'] * self.maxq(onew) * d) * (1. - self.config['lambda'])
-
-                        alltarget = np.concatenate((alltarget, alternativetarget),
-                                                   0)  # r+self.config['discount']*self.maxq(onew)*d   np.concatenate((alltarget,r+self.config['discount']*self.maxq(onew)*d ),0)
-                        # allR=np.concatenate((allR,np.array([r])),0)
-                        # if np.random.random()<1.:
-                        #	self.memory[j]=(s,a,r,onew,d,r+self.config['discount']*self.maxq(onew).reshape(1,)*d )
-                        allstate = np.concatenate((allstate, s.reshape(1, -1)), 0)
-                        allaction = np.concatenate((allaction, np.array([a])), 0)
-                        indexes.append(j)
-                    allactionsparse = np.zeros((allstate.shape[0], self.n_out))
-                    allactionsparse[np.arange(allaction.shape[0]), allaction] = 1.
-
-                    self.sess.run(self.optimizer, feed_dict={self.x: allstate, self.y: alltarget.reshape((-1, 1)),
-                                                             self.curraction: allactionsparse})
-
-                    if self.plotautoenc:
-                        sa = np.concatenate((allstate, allactionsparse), 1)
-                        self.sess.run(self.optimizerautoenc, feed_dict={self.sa: sa, self.outstate: sa})
-                    # self.sess.run(self.optimizerR, feed_dict={self.x:allstate,self.yR:allR.reshape((-1,1)),self.curraction:allactionsparse})
-                    if False:
-                        c = self.sess.run(self.cost, feed_dict={self.x: allstate, self.y: alltarget.reshape((-1, 1)),
-                                                                self.curraction: allactionsparse})
-
-                        if c > self.lastcost:
-                            self.setlearnrate(0.9999)
-                        else:
-                            self.setlearnrate(1.0001)
-                        self.lastcost = c
+        else:
+            alltarget = self.config['discount'] * self.maxqR(alltarget) * np.array(alldone)
             allactionsparse = np.zeros((allstate.shape[0], self.n_out))
             allactionsparse[np.arange(allaction.shape[0]), allaction] = 1.
-            indexes = np.array(indexes)
-            erlist = self.sess.run(self.errorlist, feed_dict={self.x: allstate, self.y: alltarget.reshape((-1, 1)),
-                                                              self.curraction: allactionsparse})
-            erlist = erlist.reshape(-1, )
-            self.errmemory.append(erlist[0])
+        indexes = np.array(indexes)
 
-            for i, er in enumerate(erlist):
-                # print (indexes[i], er,self.errmemory[indexes[i]])
-                self.errmemory[indexes[i]] = er  # self.errmemory[a]
-            self.errmemory = self.errmemory[-self.config['memsize']:]
+        erlist = self.sess.run(self.errorlist, feed_dict={self.x: allstate, self.y: alltarget.reshape((-1, 1)),
+                                                          self.curraction: allactionsparse})
+        erlist = erlist.reshape(-1, )
+        self.errmemory.append(erlist[0])
 
-            if len(self.memory) > 0 and np.array_equal(self.memory[-1][3], state):
-                self.memory[-1][6] = 1
-            self.memory.append([state, action, reward, obnew, notdone, None, None])
+        for i, er in enumerate(erlist):
+            # print (indexes[i], er,self.errmemory[indexes[i]])
+            self.errmemory[indexes[i]] = er  # self.errmemory[a]
+        self.errmemory = self.errmemory[-50000:]
 
-            self.memory = self.memory[-self.config['memsize']:]
-            return 0  # self.sess.run(self.costautoenc,feed_dict={self.x:allstate,self.outstate:allstate}) #self.sess.run(self.cost, feed_dict={self.x:allstate,self.y:alltarget.reshape((-1,1)),self.curraction:allactionsparse})/allstate.shape[0]
+        if len(self.memory) > 0 and np.array_equal(self.memory[-1][3], state):
+            self.memory[-1][6] = len(self.memory)
+        self.memory.append([state, action, reward, obnew, notdone, 0, None])
+
+        self.memory = self.memory[-50000:]
+        # print (self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})-cost1)
+        return 0  # self.sess.run(self.costautoenc,feed_dict={self.x:allstate,self.outstate:allstate}) #self.sess.run(self.cost, feed_dict={self.x:allstate,self.y:alltarget.reshape((-1,1)),self.curraction:allactionsparse})/allstate.shape[0]
+
+    def learn(self, state, action, obnew, reward, notdone, nextaction):
+        target = reward + self.config['discount'] * self.maxq(obnew) * notdone
+        # target=reward+self.config['discount']*self.evalQ(obnew,nextaction)*notdone
+
+        target = target.reshape(1, )
+        allstate = state.reshape(1, -1)
+        allaction = np.array([action])
+        alltarget = target
+        # allR=np.array([reward])
+        indexes = [-1]
+        update = (np.random.random() < self.config['probupdate'])
+        # cost1=self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})/allstateaction.shape[0]
+        # erist=self.sess.run(self.errorlist, feed_dict={self.x:allstateaction,self.y:alltarget})
+        # print (erist)
+        if update:
+            if len(self.memory) > self.config['batch_size']:
+                # p=np.arange(4,step=4./len(self.memory))+1.
+                # p=p[0:len(self.memory)]
+                # p/=np.sum(p)
+                ind = np.random.choice(len(self.memory), self.config[
+                    'batch_size'])  # ,p=np.array(self.errmemory)/sum(self.errmemory))
+                # ind2=np.random.choice(len(self.memory), self.config['batch_size']/2, replace=False,p=np.array(self.errmemory)/sum(self.errmemory))
+                # ind=np.concatenate((ind,ind2))
+                for j in ind:
+                    s, a, r, onew, d, Q, nextstate = self.memory[j]
+
+                    if Q != None:
+                        alternativetarget = Q
+                    else:
+                        if self.config['lambda'] > 0.:
+                            limitd = 1000
+                            alternativetarget = r
+                            gamma = self.config['discount']
+                            offset = 0
+                            if nextstate == None:
+                                alternativetarget += gamma * self.maxq(onew) * d
+                            # besttarget=(r+gamma*self.maxq(onew) * d)[0]
+
+                            while nextstate != None and offset < limitd:
+                                offset += nextstate
+                                n = j + offset
+
+                                # print (j,n)
+                                alternativetarget += gamma * self.memory[n][2]
+                                gamma = gamma * self.config['discount']
+                                # print (j,n,self.memory[n][6])
+                                # besttarget=max(besttarget,(alternativetarget+gamma*self.maxq(self.memory[n][3]) * self.memory[n][4])[0])
+                                if self.memory[n][6] == None or not (offset < limitd):
+                                    alternativetarget += gamma * self.maxq(self.memory[n][3]) * self.memory[n][4]
+                                # if self.memory[n][4]<0.5:
+                                #	print (alternativetarget,self.memory[n][4])
+                                nextstate = self.memory[n][6]
+                                # print (besttarget.shape,np.max(besttarget))
+                        else:
+                            alternativetarget = 0.
+                        self.memory[j][5] = alternativetarget
+                    # print (besttarget)
+
+                    alternativetarget = alternativetarget * self.config['lambda'] + (r + self.config[
+                        'discount'] * self.maxq(onew) * d) * (1. - self.config['lambda'])
+
+                    alltarget = np.concatenate((alltarget, alternativetarget),
+                                               0)  # r+self.config['discount']*self.maxq(onew)*d   np.concatenate((alltarget,r+self.config['discount']*self.maxq(onew)*d ),0)
+                    # allR=np.concatenate((allR,np.array([r])),0)
+                    # if np.random.random()<1.:
+                    #	self.memory[j]=(s,a,r,onew,d,r+self.config['discount']*self.maxq(onew).reshape(1,)*d )
+                    allstate = np.concatenate((allstate, s.reshape(1, -1)), 0)
+                    allaction = np.concatenate((allaction, np.array([a])), 0)
+                    indexes.append(j)
+                allactionsparse = np.zeros((allstate.shape[0], self.n_out))
+                allactionsparse[np.arange(allaction.shape[0]), allaction] = 1.
+
+                self.sess.run(self.optimizer, feed_dict={self.x: allstate, self.y: alltarget.reshape((-1, 1)),
+                                                         self.curraction: allactionsparse})
+
+                if self.plotautoenc:
+                    sa = np.concatenate((allstate, allactionsparse), 1)
+                    self.sess.run(self.optimizerautoenc, feed_dict={self.sa: sa, self.outstate: sa})
+                # self.sess.run(self.optimizerR, feed_dict={self.x:allstate,self.yR:allR.reshape((-1,1)),self.curraction:allactionsparse})
+                if False:
+                    c = self.sess.run(self.cost, feed_dict={self.x: allstate, self.y: alltarget.reshape((-1, 1)),
+                                                            self.curraction: allactionsparse})
+
+                    if c > self.lastcost:
+                        self.setlearnrate(0.9999)
+                    else:
+                        self.setlearnrate(1.0001)
+                    self.lastcost = c
+        allactionsparse = np.zeros((allstate.shape[0], self.n_out))
+        allactionsparse[np.arange(allaction.shape[0]), allaction] = 1.
+        indexes = np.array(indexes)
+        erlist = self.sess.run(self.errorlist, feed_dict={self.x: allstate, self.y: alltarget.reshape((-1, 1)),
+                                                          self.curraction: allactionsparse})
+        erlist = erlist.reshape(-1, )
+        self.errmemory.append(erlist[0])
+
+        for i, er in enumerate(erlist):
+            # print (indexes[i], er,self.errmemory[indexes[i]])
+            self.errmemory[indexes[i]] = er  # self.errmemory[a]
+        self.errmemory = self.errmemory[-self.config['memsize']:]
+
+        if len(self.memory) > 0 and np.array_equal(self.memory[-1][3], state):
+            self.memory[-1][6] = 1
+        self.memory.append([state, action, reward, obnew, notdone, None, None])
+
+        self.memory = self.memory[-self.config['memsize']:]
+        return 0  # self.sess.run(self.costautoenc,feed_dict={self.x:allstate,self.outstate:allstate}) #self.sess.run(self.cost, feed_dict={self.x:allstate,self.y:alltarget.reshape((-1,1)),self.curraction:allactionsparse})/allstate.shape[0]
 
     def maxq(self, observation):
-        if self.isdiscrete:
-            if observation.ndim == 1:
-                observation = observation.reshape(1, -1)
-            return np.max(self.sess.run(self.Q, feed_dict={self.x: observation})).reshape(1, )
+        if observation.ndim == 1:
+            observation = observation.reshape(1, -1)
+        return np.max(self.sess.run(self.Q, feed_dict={self.x: observation})).reshape(1, )
 
     def argmaxq(self, observation):
-        # print (observation)
-        if self.isdiscrete:
-            if observation.ndim == 1:
-                observation = observation.reshape(1, -1)
-            # print (observation,self.sess.run(self.Q, feed_dict={self.x:observation}))
-            return np.argmax(self.sess.run(self.Q, feed_dict={self.x: observation}))
+        if observation.ndim == 1:
+            observation = observation.reshape(1, -1)
+        # print (observation,self.sess.run(self.Q, feed_dict={self.x:observation}))
+        return np.argmax(self.sess.run(self.Q, feed_dict={self.x: observation}))
 
     def softmaxq(self, observation):
-        if self.isdiscrete:
-            if observation.ndim == 1:
-                observation = observation.reshape(1, -1)
-            G = self.sess.run(self.Q, feed_dict={self.x: observation})
-            p = np.exp(G * 5) / np.sum(np.exp(G * 5))
-            p = p.reshape(-1, )
-            return np.random.choice(p.shape[0], 1, p=p)[0]
-        else:
-            print ('not implemented')
-            exit(0)
+        if observation.ndim == 1:
+            observation = observation.reshape(1, -1)
+        G = self.sess.run(self.Q, feed_dict={self.x: observation})
+        p = np.exp(G * 5) / np.sum(np.exp(G * 5))
+        p = p.reshape(-1, )
+        return np.random.choice(p.shape[0], 1, p=p)[0]
 
     def maxqR(self, observation):
-        if self.isdiscrete:
-            if observation.ndim == 1:
-                observation = observation.reshape(1, -1)
-            return np.max(self.sess.run(self.R, feed_dict={self.x: observation}) + self.sess.run(self.Q, feed_dict={
-                self.x: observation}), 1).reshape(-1, )
-        else:
-            print ('not implemented')
-            exit(0)
+        if observation.ndim == 1:
+            observation = observation.reshape(1, -1)
+        return np.max(self.sess.run(self.R, feed_dict={self.x: observation}) + self.sess.run(self.Q, feed_dict={
+            self.x: observation}), 1).reshape(-1, )
 
     def argmaxqR(self, observation):
-        if self.isdiscrete:
-            if observation.ndim == 1:
-                observation = observation.reshape(1, -1)
-            return np.argmax(self.sess.run(self.R, feed_dict={self.x: observation}) + self.sess.run(self.Q, feed_dict={
-                self.x: observation}))
-        else:
-            print ('not implemented')
-            exit(0)
+        if observation.ndim == 1:
+            observation = observation.reshape(1, -1)
+        return np.argmax(self.sess.run(self.R, feed_dict={self.x: observation}) + self.sess.run(self.Q, feed_dict={
+            self.x: observation}))
 
     def act(self, observation, episode=None):
         eps = self.epsilon(episode)
