@@ -20,7 +20,7 @@ def multilayer_perceptron(_X, numhidden, regulariz, minout=None, maxout=None, in
     numlayers = len(numhidden)
     layer_i = _X
     regul = 0.
-    for i in xrange(1, numlayers - 1):
+    for i in range(1, numlayers - 1):
         w = tf.Variable(
             tf.truncated_normal([numhidden[i - 1], numhidden[i]], stddev=1. / math.sqrt(float(numhidden[i - 1]))),
             name="w" + str(i))
@@ -29,7 +29,7 @@ def multilayer_perceptron(_X, numhidden, regulariz, minout=None, maxout=None, in
         regul += tf.nn.l2_loss(w) * regulariz[i - 1]  # + tf.nn.l2_loss(b)*initbias
         if outhidden == i:
             hidlayer = layer_i
-        print 'w', w.get_shape(), 'b', b.get_shape(), 'l', layer_i.get_shape(), regulariz[i - 1]
+        print ('w', w.get_shape(), 'b', b.get_shape(), 'l', layer_i.get_shape(), regulariz[i - 1])
     w = tf.Variable(tf.truncated_normal([numhidden[numlayers - 2], numhidden[numlayers - 1]],
                                         stddev=1. / math.sqrt(float(numhidden[numlayers - 2]))),
                     name="w" + str(numlayers - 1))
@@ -40,8 +40,8 @@ def multilayer_perceptron(_X, numhidden, regulariz, minout=None, maxout=None, in
     # layer_out/=100.
     else:
         layer_out = tf.nn.sigmoid(tf.matmul(layer_i, w) + b + initbias) * (maxout - minout) + minout
-    print regulariz, numlayers, len(numhidden)
-    print 'w', w.get_shape(), 'b', b.get_shape(), 'l', layer_out.get_shape(), regulariz[numlayers - 2]
+    print (regulariz, numlayers, len(numhidden))
+    print ('w', w.get_shape(), 'b', b.get_shape(), 'l', layer_out.get_shape(), regulariz[numlayers - 2])
     regul += tf.nn.l2_loss(w) * regulariz[numlayers - 2]  # +tf.nn.l2_loss(b)*initbias
     if outhidden >= 0:
         return layer_out, regul, hidlayer
@@ -57,7 +57,7 @@ def onehot(i, n):
 
 class deepQAgent(object):
     def __del__(self):
-        print 'deepQAgent died'
+        print ('deepQAgent died')
         self.close()
 
     def save(self, filename=None):
@@ -111,8 +111,8 @@ class deepQAgent(object):
 
         if self.config["seed"] is not None:
             np.random.seed(self.config["seed"])
-            print "seed", self.config["seed"]
-        # print self.config["initial_learnrate"]
+            print ("seed", self.config["seed"])
+        # print (self.config["initial_learnrate"])
         self.isdiscrete = isinstance(self.action_space, gym.spaces.Discrete)
         if not isinstance(self.action_space, gym.spaces.Discrete):
             raise Exception('Observation space {} incompatible with {}. (Only supports Discrete action spaces.)'.format(
@@ -156,7 +156,7 @@ class deepQAgent(object):
         self.outstate, regul, self.hiddencode = multilayer_perceptron(self.sa, [n_input, 2, n_input],
                                                                       [0.000001, 0.000001], outhidden=1,
                                                                       seed=self.config["seed"])
-        # print self.x.get_shape(),self.outstate.get_shape()
+        # print (self.x.get_shape(),self.outstate.get_shape())
         self.costautoenc = tf.reduce_mean((self.sa - self.outstate) ** 2) + regul
         self.optimizerautoenc = tf.train.RMSPropOptimizer(self.learnrate, 0.9, 0.05).minimize(self.costautoenc,
                                                                                               global_step=self.global_step)
@@ -170,10 +170,10 @@ class deepQAgent(object):
         self.y = tf.placeholder("float", [None, 1], name="self.y")
         self.yR = tf.placeholder("float", [None, 1], name="self.yR")
 
-        print 'obs', n_input, 'action', self.n_out
+        print ('obs', n_input, 'action', self.n_out)
         self.Qrange = (self.reward_range[0] * 1. / (1. - self.config['discount']),
                        self.reward_range[1] * 1. / (1. - self.config['discount']))
-        print self.Qrange
+        print (self.Qrange)
         # self.scale=200./max(abs(self.Qrange[1]),abs(self.Qrange[0]))
         self.Q, regul = multilayer_perceptron(self.x, [n_input] + self.config['hiddenlayers'] + [self.n_out],
                                               self.config['regularization'],
@@ -193,7 +193,7 @@ class deepQAgent(object):
                                          reduction_indices=1)  # tf.reduce_sum(input_tensor, reduction_indices, keep_dims, name)#tf.slice(self.Q, [0,self.curraction],[-1,1])  #self.Q[:,self.out]
             self.singleR = tf.reshape(self.singleR, [-1, 1])
 
-            # print 'singleR',self.singleR.get_shape()
+            # print ('singleR',self.singleR.get_shape())
             self.errorlistR = (self.singleR - self.yR) ** 2
             self.errorlist = (self.singleQ - self.y) ** 2
 
@@ -216,7 +216,7 @@ class deepQAgent(object):
         if self.config['file'] is None or (not os.path.isfile(self.config['file'] + ".tf")):
             self.sess.run(tf.initialize_all_variables())
         else:
-            print "loading " + self.config['file'] + ".tf"
+            print ("loading " + self.config['file'] + ".tf")
             self.saver.restore(self.sess, self.config['file'] + ".tf")
         self.sess.run(tf.assign(self.global_step, 0))
 
@@ -243,7 +243,7 @@ class deepQAgent(object):
             update = (np.random.random() < .04)
             # cost1=self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})/allstateaction.shape[0]
             # erist=self.sess.run(self.errorlist, feed_dict={self.x:allstateaction,self.y:alltarget})
-            # print erist
+            # print (erist)
             if update:
                 if len(self.memory) > self.config['batch_size']:
                     ind = np.random.choice(len(self.memory), self.config['batch_size'],
@@ -263,9 +263,9 @@ class deepQAgent(object):
                         indexes.append(j)
                     allactionsparse = np.zeros((allstate.shape[0], self.n_out))
                     allactionsparse[np.arange(allaction.shape[0]), allaction] = 1.
-                    # print np.array(alldone).shape,self.maxqR(alltarget).shape
+                    # print (np.array(alldone).shape,self.maxqR(alltarget).shape)
                     alltarget = self.config['discount'] * self.maxqR(alltarget) * np.array(alldone)
-                    #	print alltarget[0:2]
+                    #	print (alltarget[0:2])
                     self.sess.run(self.optimizer, feed_dict={self.x: allstate, self.y: alltarget.reshape((-1, 1)),
                                                              self.curraction: allactionsparse})
                     self.sess.run(self.optimizerautoenc, feed_dict={self.sa: allstate, self.outstate: allstate})
@@ -296,7 +296,7 @@ class deepQAgent(object):
             self.errmemory.append(erlist[0])
 
             for i, er in enumerate(erlist):
-                # print indexes[i], er,self.errmemory[indexes[i]]
+                # print (indexes[i], er,self.errmemory[indexes[i]])
                 self.errmemory[indexes[i]] = er  # self.errmemory[a]
             self.errmemory = self.errmemory[-50000:]
 
@@ -305,7 +305,7 @@ class deepQAgent(object):
             self.memory.append([state, action, reward, obnew, notdone, 0, None])
 
             self.memory = self.memory[-50000:]
-            # print self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})-cost1
+            # print (self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})-cost1)
             return 0  # self.sess.run(self.costautoenc,feed_dict={self.x:allstate,self.outstate:allstate}) #self.sess.run(self.cost, feed_dict={self.x:allstate,self.y:alltarget.reshape((-1,1)),self.curraction:allactionsparse})/allstate.shape[0]
 
     def learn(self, state, action, obnew, reward, notdone, nextaction):
@@ -322,7 +322,7 @@ class deepQAgent(object):
             update = (np.random.random() < self.config['probupdate'])
             # cost1=self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})/allstateaction.shape[0]
             # erist=self.sess.run(self.errorlist, feed_dict={self.x:allstateaction,self.y:alltarget})
-            # print erist
+            # print (erist)
             if update:
                 if len(self.memory) > self.config['batch_size']:
                     # p=np.arange(4,step=4./len(self.memory))+1.
@@ -351,21 +351,21 @@ class deepQAgent(object):
                                     offset += nextstate
                                     n = j + offset
 
-                                    # print j,n
+                                    # print (j,n)
                                     alternativetarget += gamma * self.memory[n][2]
                                     gamma = gamma * self.config['discount']
-                                    # print j,n,self.memory[n][6]
+                                    # print (j,n,self.memory[n][6])
                                     # besttarget=max(besttarget,(alternativetarget+gamma*self.maxq(self.memory[n][3]) * self.memory[n][4])[0])
                                     if self.memory[n][6] == None or not (offset < limitd):
                                         alternativetarget += gamma * self.maxq(self.memory[n][3]) * self.memory[n][4]
                                     # if self.memory[n][4]<0.5:
-                                    #	print alternativetarget,self.memory[n][4]
+                                    #	print (alternativetarget,self.memory[n][4])
                                     nextstate = self.memory[n][6]
-                                    # print besttarget.shape,np.max(besttarget)
+                                    # print (besttarget.shape,np.max(besttarget))
                             else:
                                 alternativetarget = 0.
                             self.memory[j][5] = alternativetarget
-                        # print besttarget
+                        # print (besttarget)
 
                         alternativetarget = alternativetarget * self.config['lambda'] + (r + self.config[
                             'discount'] * self.maxq(onew) * d) * (1. - self.config['lambda'])
@@ -406,7 +406,7 @@ class deepQAgent(object):
             self.errmemory.append(erlist[0])
 
             for i, er in enumerate(erlist):
-                # print indexes[i], er,self.errmemory[indexes[i]]
+                # print (indexes[i], er,self.errmemory[indexes[i]])
                 self.errmemory[indexes[i]] = er  # self.errmemory[a]
             self.errmemory = self.errmemory[-self.config['memsize']:]
 
@@ -415,14 +415,14 @@ class deepQAgent(object):
             self.memory.append([state, action, reward, obnew, notdone, None, None])
             '''
 			if len(self.memory)>4:
-				print len(self.memory)-4,self.memory[ self.memory[-4][6] ]
-				print len(self.memory)-3,self.memory[-3]
-				print len(self.memory)-2,self.memory[-2]
+				print (len(self.memory)-4,self.memory[ self.memory[-4][6] ])
+				print (len(self.memory)-3,self.memory[-3])
+				print (len(self.memory)-2,self.memory[-2])
 			'''
             self.memory = self.memory[-self.config['memsize']:]
-            # print self.sess.run(self.cost, feed_dict={self.x:allstate,self.y:alltarget.reshape((-1,1)),self.curraction:allactionsparse})
+            # print (self.sess.run(self.cost, feed_dict={self.x:allstate,self.y:alltarget.reshape((-1,1)),self.curraction:allactionsparse}))
 
-            # print self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})-cost1
+            # print (self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})-cost1)
             return 0  # self.sess.run(self.costautoenc,feed_dict={self.x:allstate,self.outstate:allstate}) #self.sess.run(self.cost, feed_dict={self.x:allstate,self.y:alltarget.reshape((-1,1)),self.curraction:allactionsparse})/allstate.shape[0]
 
     def maxq(self, observation):
@@ -432,11 +432,11 @@ class deepQAgent(object):
             return np.max(self.sess.run(self.Q, feed_dict={self.x: observation})).reshape(1, )
 
     def argmaxq(self, observation):
-        # print observation
+        # print (observation)
         if self.isdiscrete:
             if observation.ndim == 1:
                 observation = observation.reshape(1, -1)
-            # print observation,self.sess.run(self.Q, feed_dict={self.x:observation})
+            # print (observation,self.sess.run(self.Q, feed_dict={self.x:observation}))
             return np.argmax(self.sess.run(self.Q, feed_dict={self.x: observation}))
 
     def softmaxq(self, observation):
@@ -448,7 +448,7 @@ class deepQAgent(object):
             p = p.reshape(-1, )
             return np.random.choice(p.shape[0], 1, p=p)[0]
         else:
-            print 'not implemented'
+            print ('not implemented')
             exit(0)
 
     def maxqR(self, observation):
@@ -458,7 +458,7 @@ class deepQAgent(object):
             return np.max(self.sess.run(self.R, feed_dict={self.x: observation}) + self.sess.run(self.Q, feed_dict={
                 self.x: observation}), 1).reshape(-1, )
         else:
-            print 'not implemented'
+            print ('not implemented')
             exit(0)
 
     def argmaxqR(self, observation):
@@ -468,7 +468,7 @@ class deepQAgent(object):
             return np.argmax(self.sess.run(self.R, feed_dict={self.x: observation}) + self.sess.run(self.Q, feed_dict={
                 self.x: observation}))
         else:
-            print 'not implemented'
+            print ('not implemented')
             exit(0)
 
     def act(self, observation, episode=None):
@@ -477,11 +477,11 @@ class deepQAgent(object):
         # epsilon greedy.
         if np.random.random() > eps:
             action = self.argmaxq(observation)  # self.softmaxq(observation)#
-        # print self.softmaxq(observation)
-        # print 'greedy',action
+        # print (self.softmaxq(observation))
+        # print ('greedy',action)
         else:
             action = self.action_space.sample()
-        # print 'sample',action
+        # print ('sample',action)
         return action
 
     def actR(self, observation, episode):
@@ -489,10 +489,10 @@ class deepQAgent(object):
         # epsilon greedy.
         if np.random.random() > eps:
             action = self.argmaxqR(observation)
-        # print 'greedy',action
+        # print ('greedy',action)
         else:
             action = self.action_space.sample()
-        # print 'sample',action
+        # print ('sample',action)
         return action
 
     def close(self):
@@ -501,7 +501,7 @@ class deepQAgent(object):
 
 class deepQAgentCont(object):
     def __del__(self):
-        print self.id, 'died'
+        print (self.id, 'died')
         self.close()
 
     def __init__(self, observation_space, action_space, reward_range, **userconfig):
@@ -565,7 +565,7 @@ class deepQAgentCont(object):
         self.outstate, regul, self.hiddencode = multilayer_perceptron(self.sa, [n_input, 2, n_input],
                                                                       [0.000001, 0.000001], outhidden=1,
                                                                       seed=self.config["seed"])
-        # print self.x.get_shape(),self.outstate.get_shape()
+        # print (self.x.get_shape(),self.outstate.get_shape())
         self.costautoenc = tf.reduce_mean((self.sa - self.outstate) ** 2) + regul
         self.optimizerautoenc = tf.train.RMSPropOptimizer(self.learnrate, 0.9, 0.05).minimize(self.costautoenc,
                                                                                               global_step=self.global_step)
@@ -576,10 +576,10 @@ class deepQAgentCont(object):
         self.x = tf.placeholder("float", [None, n_input])
         self.y = tf.placeholder("float", [None, 1])
         self.yR = tf.placeholder("float", [None, 1])
-        print 'obs', n_input, 'action', self.n_out
+        print ('obs', n_input, 'action', self.n_out)
         self.Qrange = (self.reward_range[0] * 1. / (1. - self.config['discount']),
                        self.reward_range[1] * 1. / (1. - self.config['discount']))
-        print self.Qrange
+        print (self.Qrange)
         # self.scale=200./max(abs(self.Qrange[1]),abs(self.Qrange[0]))
         self.Q, regul = multilayer_perceptron(self.x, [n_input] + self.config['hiddenlayers'] + [self.n_out],
                                               self.config['regularization'],
@@ -625,7 +625,7 @@ class deepQAgentCont(object):
             update = (np.random.random() < self.config['probupdate'])
             # cost1=self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})/allstateaction.shape[0]
             # erist=self.sess.run(self.errorlist, feed_dict={self.x:allstateaction,self.y:alltarget})
-            # print erist
+            # print (erist)
             if update:
                 if len(self.memory) > self.config['batch_size']:
                     # p=np.arange(4,step=4./len(self.memory))+1.
@@ -649,14 +649,14 @@ class deepQAgentCont(object):
                                 offset += nextstate
                                 n = j + offset
 
-                                # print j,n
+                                # print (j,n)
                                 alternativetarget += gamma * self.memory[n][2]
                                 gamma = gamma * self.config['discount']
-                                # print j,n,self.memory[n][6]
+                                # print (j,n,self.memory[n][6])
                                 if self.memory[n][6] == None or not (offset < limitd):
                                     alternativetarget += gamma * self.maxq(self.memory[n][3]) * self.memory[n][4]
                                 # if self.memory[n][4]<0.5:
-                                #	print alternativetarget,self.memory[n][4]
+                                #	print (alternativetarget,self.memory[n][4])
                                 nextstate = self.memory[n][6]
                         else:
                             alternativetarget = 0.
@@ -699,7 +699,7 @@ class deepQAgentCont(object):
             self.errmemory.append(erlist[0])
 
             for i, er in enumerate(erlist):
-                # print indexes[i], er,self.errmemory[indexes[i]]
+                # print (indexes[i], er,self.errmemory[indexes[i]])
                 self.errmemory[indexes[i]] = er  # self.errmemory[a]
             self.errmemory = self.errmemory[-self.config['memsize']:]
 
@@ -708,14 +708,14 @@ class deepQAgentCont(object):
             self.memory.append([state, action, reward, obnew, notdone, target, None])
             '''
 			if len(self.memory)>4:
-				print len(self.memory)-4,self.memory[ self.memory[-4][6] ]
-				print len(self.memory)-3,self.memory[-3]
-				print len(self.memory)-2,self.memory[-2]
+				print (len(self.memory)-4,self.memory[ self.memory[-4][6] ])
+				print (len(self.memory)-3,self.memory[-3])
+				print (len(self.memory)-2,self.memory[-2])
 			'''
             self.memory = self.memory[-self.config['memsize']:]
-            # print self.sess.run(self.cost, feed_dict={self.x:allstate,self.y:alltarget.reshape((-1,1)),self.curraction:allactionsparse})
+            # print (self.sess.run(self.cost, feed_dict={self.x:allstate,self.y:alltarget.reshape((-1,1)),self.curraction:allactionsparse}))
 
-            # print self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})-cost1
+            # print (self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})-cost1)
             return 0  # self.sess.run(self.costautoenc,feed_dict={self.x:allstate,self.outstate:allstate}) #self.sess.run(self.cost, feed_dict={self.x:allstate,self.y:alltarget.reshape((-1,1)),self.curraction:allactionsparse})/allstate.shape[0]
         else:
             target = reward + self.config['discount'] * self.maxq(obnew) * notdone
@@ -724,7 +724,7 @@ class deepQAgentCont(object):
             alltarget = target
             # cost1=self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})/allstateaction.shape[0]
             # erist=self.sess.run(self.errorlist, feed_dict={self.x:allstateaction,self.y:alltarget})
-            # print erist
+            # print (erist)
             if (np.random.random() < .5):
                 if len(self.memory) > self.config['batch_size']:
                     ind = np.random.choice(len(self.memory), self.config['batch_size'], replace=False)
@@ -743,29 +743,29 @@ class deepQAgentCont(object):
 					alltarget=np.concatenate((alltarget,r+self.config['discount']*self.maxq(onew)*d ),0)
 					allstateaction=np.concatenate((allstateaction,sa),0)
 			'''
-            # print erlist.shape,alltarget.shape,maxer.shape# erlist[maxer]
-            # print erlist[maxer]
-            # print self.sess.run(self.Q, feed_dict={self.x:allstateaction,self.y:alltarget}).shape
-            # print 'all',alltarget.shape,allstateaction.shape
+            # print (erlist.shape,alltarget.shape,maxer.shape# erlist[maxer])
+            # print (erlist[maxer])
+            # print (self.sess.run(self.Q, feed_dict={self.x:allstateaction,self.y:alltarget}).shape)
+            # print ('all',alltarget.shape,allstateaction.shape)
             self.memory.append((stateaction, reward, obnew, notdone))
             self.memory = self.memory[-100000:]
 
-            # print self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})-cost1
+            # print (self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})-cost1)
             return 0  # self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget.reshape((-1,1))})/allstateaction.shape[0]
 
     def maxq(self, observation):
-        stateaction = np.array([np.concatenate((observation, self.action_space.sample())) for _ in xrange(50)])
-        # print stateaction
+        stateaction = np.array([np.concatenate((observation, self.action_space.sample())) for _ in range(50)])
+        # print (stateaction)
         q = self.sess.run(self.Q, feed_dict={self.x: stateaction})
-        # print stateaction[np.argmax(q)]
-        # print q[np.argmax(q)] , stateaction[np.argmax(q),observation.shape[0]:]
-        # print q.shape,observation.shape[0],np.argmax(q),stateaction[np.argmax(q),observation.shape[0]:]
-        # print q[np.argmax(q)],np.max(q).reshape(1,)
+        # print (stateaction[np.argmax(q)])
+        # print (q[np.argmax(q)] , stateaction[np.argmax(q),observation.shape[0]:])
+        # print (q.shape,observation.shape[0],np.argmax(q),stateaction[np.argmax(q),observation.shape[0]:])
+        # print (q[np.argmax(q)],np.max(q).reshape(1,))
         return np.max(q).reshape(1, )  # q[np.argmax(q)]
 
     def argmaxq(self, observation):
-        # print observation
-        stateaction = np.array([np.concatenate((observation, self.action_space.sample())) for _ in xrange(50)])
+        # print (observation)
+        stateaction = np.array([np.concatenate((observation, self.action_space.sample())) for _ in range(50)])
         q = self.sess.run(self.Q, feed_dict={self.x: stateaction})
         return stateaction[np.argmax(q), observation.shape[0]:]
 
@@ -775,11 +775,11 @@ class deepQAgentCont(object):
         # epsilon greedy.
         if np.random.random() > eps:
             action = self.argmaxq(observation)  # self.softmaxq(observation)#
-        # print self.softmaxq(observation)
-        # print 'greedy',action
+        # print (self.softmaxq(observation))
+        # print ('greedy',action)
         else:
             action = self.action_space.sample()
-        # print 'sample',action
+        # print ('sample',action)
         return action
 
     def close(self):
@@ -797,24 +797,24 @@ def do_rollout(agent, env, episode, num_steps=None, render=False):
     ob1 = np.copy(ob)
     for _ in range(agent.config["past"]):
         ob1 = np.concatenate((ob1, ob))
-    # print ob.shape,ob1.shape
+    # print (ob.shape,ob1.shape)
     listob = [ob1]
     listact = []
     for t in range(num_steps):
 
         # start = time.time()
         a = agent.act(ob1, episode)
-        # print 'time actR',time.time()-start
+        # print ('time actR',time.time()-start)
         (obnew, reward, done, _info) = env.step(a)
         obnew = agent.scaleobs(obnew)
-        # print t,a,_info
+        # print (t,a,_info)
         reward *= agent.config['scalereward']
         listact.append(a)
         obnew1 = np.concatenate((ob1[ob.shape[0]:], obnew))
 
         listob.append(obnew1)
         # (obnew, reward, done, _info) = env.step(a)
-        #		print agent.evalQ(ob,a)-target,
+        #		print (agent.evalQ(ob,a)-target,)
 
         start = time.time()
         cost += agent.learn(ob1, a, obnew1, reward, 1. - 1. * done, agent.act(obnew1, episode))
@@ -837,12 +837,12 @@ def do_rollout(agent, env, episode, num_steps=None, render=False):
 				ax[1].scatter(encob[:,0],encob[:,1],s=100,color=cm.rainbow(Qlistn.reshape(-1,)))
 				plt.draw()
 			'''
-            print 'learn time', (time.time() - start) * 100., agent.maxq(
-                ob1), reward  # agent.sess.run(agent.R, feed_dict={agent.x:ob1.reshape(1,-1)}),reward
-        # print agent.sess.run(agent.Q, feed_dict={agent.x:ob.reshape(1,-1)})
-        # for _ in xrange(19999):
-        #	print 'testlearn',agent.testlearn(ob,a,obnew,100*reward,1.-1.*done),agent.evalQ(ob,a),100*reward
-        # print agent.evalQ(ob,a)
+            print ('learn time', (time.time() - start) * 100., agent.maxq(
+                ob1), reward)  # agent.sess.run(agent.R, feed_dict={agent.x:ob1.reshape(1,-1)}),reward
+        # print (agent.sess.run(agent.Q, feed_dict={agent.x:ob.reshape(1,-1)}))
+        # for _ in range(19999):
+        #	print ('testlearn',agent.testlearn(ob,a,obnew,100*reward,1.-1.*done),agent.evalQ(ob,a),100*reward)
+        # print (agent.evalQ(ob,a))
 
         ob1 = obnew1
         total_rew += reward

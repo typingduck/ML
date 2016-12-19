@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    print args
+    print (args)
     numepisodes = int(args.episodes)
     if args.seed is not None:
         seed = int(args.seed)
@@ -39,7 +39,7 @@ if __name__ == '__main__':
     resultsdir = './' + nameenv
 
     env.monitor.start(resultsdir, force=True)
-    print env.observation_space, env.action_space, env.spec.timestep_limit, env.reward_range, gym.envs.registry.spec(nameenv).trials
+    print (env.observation_space, env.action_space, env.spec.timestep_limit, env.reward_range, gym.envs.registry.spec(nameenv).trials)
     if nameenv == 'Acrobot-v0':
         env.reward_range = (-1., 0.)
 
@@ -94,11 +94,11 @@ if __name__ == '__main__':
     totrewavglist = []
     costlist = []
     showevery = 10
-    for episode in xrange(numepisodes):
+    for episode in range(numepisodes):
         if episode % showevery == 0:
             render = True
             eps = None
-            print 'episode', episode, 'l rate', agent.getlearnrate()
+            print ('episode', episode, 'l rate', agent.getlearnrate())
             oldavg = avg
         else:
             render = False
@@ -109,7 +109,7 @@ if __name__ == '__main__':
         if episode == 0:
             avg = total_rew
         if episode % 50 == 0:
-            print agent.config
+            print (agent.config)
         if episode % 1 == 0:
             listob = np.array(listob)
             listact = np.array(listact)
@@ -135,11 +135,11 @@ if __name__ == '__main__':
                        [np.mean(np.array(totrewlist[-100:])), np.mean(np.array(totrewlist[-100:]))], color='black')
             plt.draw()
             plt.pause(.01)
-        print render, 'time', (time.time() - startt) / steps * 100., 'steps', steps, 'total reward', total_rew / \
-            agent.config['scalereward'], 'avg', avg / agent.config['scalereward'], cost / steps, 'eps',\
-            agent.epsilon(eps), len(agent.memory)
+        print (render, 'time', (time.time() - startt) / steps * 100., 'steps', steps, 'total reward', total_rew,
+            agent.config['scalereward'], 'avg', avg / agent.config['scalereward'], cost / steps, 'eps',
+            agent.epsilon(eps), len(agent.memory))
     # fig.savefig('last.png')
     env.monitor.close()
-    print agent.config
+    print (agent.config)
     # gym.upload(resultsdir, api_key='YOURAPI')
 
