@@ -49,12 +49,6 @@ def multilayer_perceptron(_X, numhidden, regulariz, minout=None, maxout=None, in
         return layer_out, regul
 
 
-def onehot(i, n):
-    out = np.zeros(n)
-    out[i] = 1.
-    return out
-
-
 class deepQAgent(object):
     def __del__(self):
         print ('deepQAgent died')
@@ -413,16 +407,8 @@ class deepQAgent(object):
             if len(self.memory) > 0 and np.array_equal(self.memory[-1][3], state):
                 self.memory[-1][6] = 1
             self.memory.append([state, action, reward, obnew, notdone, None, None])
-            '''
-			if len(self.memory)>4:
-				print (len(self.memory)-4,self.memory[ self.memory[-4][6] ])
-				print (len(self.memory)-3,self.memory[-3])
-				print (len(self.memory)-2,self.memory[-2])
-			'''
-            self.memory = self.memory[-self.config['memsize']:]
-            # print (self.sess.run(self.cost, feed_dict={self.x:allstate,self.y:alltarget.reshape((-1,1)),self.curraction:allactionsparse}))
 
-            # print (self.sess.run(self.cost, feed_dict={self.x:allstateaction,self.y:alltarget})-cost1)
+            self.memory = self.memory[-self.config['memsize']:]
             return 0  # self.sess.run(self.costautoenc,feed_dict={self.x:allstate,self.outstate:allstate}) #self.sess.run(self.cost, feed_dict={self.x:allstate,self.y:alltarget.reshape((-1,1)),self.curraction:allactionsparse})/allstate.shape[0]
 
     def maxq(self, observation):
@@ -513,7 +499,7 @@ def do_rollout(agent, env, episode, num_steps=None, render=False):
     # print (ob.shape,ob1.shape)
     listob = [ob1]
     listact = []
-    for t in range(num_steps):
+    for step in range(num_steps):
 
         # start = time.time()
         a = agent.act(ob1, episode)
@@ -532,36 +518,11 @@ def do_rollout(agent, env, episode, num_steps=None, render=False):
         start = time.time()
         cost += agent.learn(ob1, a, obnew1, reward, 1. - 1. * done, agent.act(obnew1, episode))
 
-        if render and (t % 20 == 0 or done):
-            '''
-			if agent.plotautoenc:
-				listact1=np.array(listact)
-				allactionsparse=np.zeros((listact1.shape[0],agent.n_out))
-				allactionsparse[np.arange(listact1.shape[0]),listact1]=1.
-				encob=agent.sess.run(agent.hiddencode,feed_dict={agent.sa:np.concatenate((np.array(listob)[:-1],allactionsparse),1) })
-				Qlist= agent.evalQ(np.array(listob)[:-1],allactionsparse)
-				Qlistn=(Qlist-np.min(Qlist))/(np.max(Qlist)-np.min(Qlist))
-				ax[1].clear()
-				ax[1].set_xlim(-1, 1)
-				ax[1].set_ylim(-1, 1)
-				ax[1].autoscale(False)
-				#ax[1].quiver(encob[:,0],encob[:,1],encob[1:,0]-encob[:-1,0],encob[1:,1]-encob[:-1,1],color='black')
-				ax[1].plot(encob[:,0],encob[:,1],color='black')
-				ax[1].scatter(encob[:,0],encob[:,1],s=100,color=cm.rainbow(Qlistn.reshape(-1,)))
-				plt.draw()
-			'''
-            print ('learn time', (time.time() - start) * 100., agent.maxq(
-                ob1), reward)  # agent.sess.run(agent.R, feed_dict={agent.x:ob1.reshape(1,-1)}),reward
-        # print (agent.sess.run(agent.Q, feed_dict={agent.x:ob.reshape(1,-1)}))
-        # for _ in range(19999):
-        #	print ('testlearn',agent.testlearn(ob,a,obnew,100*reward,1.-1.*done),agent.evalQ(ob,a),100*reward)
-        # print (agent.evalQ(ob,a))
-
         ob1 = obnew1
         total_rew += reward
-        if render and t % 2 == 0:
+        if render and step % 2 == 0:
             env.render()
         # time.sleep(0.)
         # print(a)
         if done: break
-    return total_rew, t + 1, cost, listob, listact
+    return total_rew, step + 1, cost, listob, listact
